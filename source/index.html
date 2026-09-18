@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#10091e">
+<meta name="description" content="OYO: UNLOCKED. Explore the Unwritten Reach and turn real actions into new worlds.">
+<link rel="icon" href="/icon.svg"><link rel="apple-touch-icon" href="/icon-192.png"><link rel="manifest" href="/manifest.webmanifest">
+<title>OYO: UNLOCKED — Your adventure</title>
+<style id="opening-style">
+html,body{margin:0;min-height:100%;background:#10091e;color:#f3edf8;font-family:system-ui,sans-serif}
+.opening{min-height:100dvh;display:grid;place-content:center;text-align:center;padding:24px;box-sizing:border-box;background:radial-gradient(ellipse at center,#38204e,#10091e 70%)}
+.opening h1{font-size:clamp(2.4rem,9vw,5rem);letter-spacing:.08em;color:#f1cb79;margin:0 0 16px}
+.opening p{max-width:36rem;line-height:1.6;margin:8px auto}.opening small{letter-spacing:.2em;color:#bca5d3}
+.opening button{margin:20px auto 0;padding:12px 24px;border:1px solid #f1cb79;border-radius:8px;background:#f1cb79;color:#21122d;font:inherit;cursor:pointer}
+.opening button[hidden]{display:none}.opening button:focus-visible{outline:3px solid white;outline-offset:4px}
+</style></head><body>
+<div id="app"><section class="opening" aria-label="Opening the game"><small>THE UNWRITTEN REACH</small><h1>OYO: UNLOCKED</h1><p id="opening-status" role="status">Opening your adventure…</p><button id="opening-retry" hidden>Reload game</button><noscript><p>Turn on JavaScript in your browser to play.</p></noscript></section></div>
+<div id="notice" role="status" aria-live="polite"></div>
+<script id="opening-controller">
+(()=>{
+ let opened=false;
+ const fail=()=>{if(opened)return;const status=document.getElementById('opening-status'),retry=document.getElementById('opening-retry');if(status)status.textContent='The game could not finish opening. Check your connection, then reload. If it continues, the published game needs an update.';if(retry)retry.hidden=false;};
+ const timer=setTimeout(fail,15000);
+ window.oyoBoot={ready(){opened=true;clearTimeout(timer);}};
+ window.addEventListener('error',fail);
+ document.getElementById('opening-retry').addEventListener('click',()=>location.reload());
+})();
+</script>
+<script type="module" src="/src/main.js"></script>
+</body></html>

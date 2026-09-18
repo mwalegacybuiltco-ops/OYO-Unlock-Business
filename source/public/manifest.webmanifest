@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "OYO: UNLOCKED",
+  "short_name": "OYO Unlocked",
+  "description": "Explore the Unwritten Reach. Turn real actions into evidence, evolving Guides and new worlds.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10091e",
+  "theme_color": "#10091e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

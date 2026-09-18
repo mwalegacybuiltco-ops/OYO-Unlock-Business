@@ -1,0 +1,17 @@
+import {createServer} from 'node:http';
+import {initializeApp,applicationDefault} from 'firebase-admin/app';
+import {getAuth} from 'firebase-admin/auth';
+import {getFirestore} from 'firebase-admin/firestore';
+import {createPayPal} from './paypal.mjs';
+import {createService} from './service.mjs';
+import {createHandler} from './http.mjs';
+import {check} from './policy.mjs';
+const required=name=>{check(process.env[name],`Set ${name}`);return process.env[name];};
+const config={mode:required('PAYPAL_MODE'),clientId:required('PAYPAL_CLIENT_ID'),secret:required('PAYPAL_CLIENT_SECRET'),planId:required('PAYPAL_PLAN_ID'),webhookId:required('PAYPAL_WEBHOOK_ID'),appUrl:required('APP_URL')};
+check(['sandbox','live'].includes(config.mode),'PAYPAL_MODE must be sandbox or live');
+const appURL=new URL(config.appUrl);check(appURL.protocol==='https:'&&!appURL.hash&&!appURL.search&&!appURL.username&&!appURL.password,'APP_URL must be the HTTPS game URL, without a query or hash');
+initializeApp({credential:applicationDefault(),projectId:required('FIREBASE_PROJECT_ID')});
+const service=createService({db:getFirestore(),paypal:createPayPal(config),config});
+const server=createServer(createHandler({service,auth:getAuth(),origin:appURL.origin}));
+server.requestTimeout=30000;server.headersTimeout=15000;
+server.listen(Number(process.env.PORT||8080),'0.0.0.0',()=>console.log('OYO PayPal server started in '+config.mode+' mode'));

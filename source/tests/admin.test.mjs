@@ -1,0 +1,5 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {isOwner,cleanAnnouncement} from '../src/game/admin.js';
+test('only the sole configured UID with the owner claim receives admin access',()=>{assert.equal(isOwner('alice',{owner:true},'alice'),true);assert.equal(isOwner('bob',{owner:true},'alice'),false);assert.equal(isOwner('alice',{owner:false},'alice'),false);assert.equal(isOwner('alice',{reviewer:true,moderator:true,resourceAdmin:true},'alice'),false);assert.equal(isOwner('alice',{owner:true},undefined),false);assert.equal(isOwner(null,{owner:true},null),false);});
+test('announcements validate length and store only allowed fields',()=>{assert.deepEqual(cleanAnnouncement({title:' Hello ',body:'Welcome players',enabled:true,owner:'bob'}),{title:'Hello',body:'Welcome players',enabled:true});assert.throws(()=>cleanAnnouncement({title:'x'.repeat(101)}));assert.throws(()=>cleanAnnouncement({body:'x'.repeat(1501)}));assert.equal(cleanAnnouncement({enabled:'true'}).enabled,false);});

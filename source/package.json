@@ -1,0 +1,29 @@
+{
+  "name": "oyo-unlocked",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent fantasy progression game with Firebase Spark, tester passes and a separate PayPal verification server",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build && node scripts/inline-entry.mjs && node scripts/build-sw.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.mjs billing-server/tests/*.test.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-oyo-unlocked \"node --test tests/rules/*.test.mjs\"",
+    "emulators": "firebase emulators:start --project demo-oyo-unlocked",
+    "preview:included": "node scripts/preview.mjs",
+    "build:pages": "vite build --base ./ && node scripts/inline-entry.mjs && node scripts/build-sw.mjs"
+  },
+  "dependencies": {
+    "firebase": "^12.0.0",
+    "lucide": "^0.468.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "@firebase/rules-unit-testing": "^5.0.0"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

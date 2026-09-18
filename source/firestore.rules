@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed(){return request.auth != null;}
+  function self(uid){return signed() && request.auth.uid == uid;}
+  function owner(){return signed() && exists(/databases/$(database)/documents/sparkConfig/owner) && get(/databases/$(database)/documents/sparkConfig/owner).data.uid == request.auth.uid;}
+  function text(v,min,max){return v is string && v.size() >= min && v.size() <= max;}
+  function https(v){return v == '' || (v is string && v.size() <= 2000 && v.matches('https://[^ ]+'));}
+  function world(id){return {"foundation": {"index": 0, "previous": "", "first": "m1", "second": "m2"}, "brand": {"index": 1, "previous": "foundation", "first": "m3", "second": "m4"}, "offer": {"index": 2, "previous": "brand", "first": "m5", "second": "m6"}, "visibility": {"index": 3, "previous": "offer", "first": "m7", "second": "m8"}, "conversations": {"index": 4, "previous": "visibility", "first": "m9", "second": "m10"}, "sales": {"index": 5, "previous": "conversations", "first": "m11", "second": "m12"}, "experience": {"index": 6, "previous": "sales", "first": "m13", "second": "m14"}, "growth": {"index": 7, "previous": "experience", "first": "m15", "second": "m16"}, "freedom": {"index": 8, "previous": "growth", "first": "m17", "second": "m18"}}[id];}
+  function mission(id){return {"m1": {"world": "foundation", "previous": "", "correct": 1}, "m2": {"world": "foundation", "previous": "m1", "correct": 2}, "m3": {"world": "brand", "previous": "", "correct": 1}, "m4": {"world": "brand", "previous": "m3", "correct": 2}, "m5": {"world": "offer", "previous": "", "correct": 1}, "m6": {"world": "offer", "previous": "m5", "correct": 0}, "m7": {"world": "visibility", "previous": "", "correct": 2}, "m8": {"world": "visibility", "previous": "m7", "correct": 1}, "m9": {"world": "conversations", "previous": "", "correct": 0}, "m10": {"world": "conversations", "previous": "m9", "correct": 1}, "m11": {"world": "sales", "previous": "", "correct": 2}, "m12": {"world": "sales", "previous": "m11", "correct": 1}, "m13": {"world": "experience", "previous": "", "correct": 0}, "m14": {"world": "experience", "previous": "m13", "correct": 2}, "m15": {"world": "growth", "previous": "", "correct": 1}, "m16": {"world": "growth", "previous": "m15", "correct": 2}, "m17": {"world": "freedom", "previous": "", "correct": 1}, "m18": {"world": "freedom", "previous": "m17", "correct": 2}}[id];}
+  function tester(uid){return exists(/databases/$(database)/documents/sparkTesters/$(uid)) && get(/databases/$(database)/documents/sparkTesters/$(uid)).data.active == true && (get(/databases/$(database)/documents/sparkTesters/$(uid)).data.expiresAt == 0 || get(/databases/$(database)/documents/sparkTesters/$(uid)).data.expiresAt > request.time.toMillis());}
+  function automaticPaid(uid){return exists(/databases/$(database)/documents/sparkPayPalMemberships/$(uid)) && get(/databases/$(database)/documents/sparkPayPalMemberships/$(uid)).data.active == true && get(/databases/$(database)/documents/sparkPayPalMemberships/$(uid)).data.expiresAt > request.time.toMillis();}
+  function paid(uid,w){return automaticPaid(uid) || tester(uid) || world(w).index == 0 || owner() || (exists(/databases/$(database)/documents/sparkConfig/billing) && get(/databases/$(database)/documents/sparkConfig/billing).data.requireMembership == false) || (exists(/databases/$(database)/documents/sparkMemberships/$(uid)) && get(/databases/$(database)/documents/sparkMemberships/$(uid)).data.active == true && get(/databases/$(database)/documents/sparkMemberships/$(uid)).data.expiresAt > request.time.toMillis());}
+  function worldOpen(uid,w){return world(w).index == 0 || (exists(/databases/$(database)/documents/sparkPlayers/$(uid)/bosses/$(world(w).previous)) && get(/databases/$(database)/documents/sparkPlayers/$(uid)/bosses/$(world(w).previous)).data.won == true);}
+  function verified(uid,id){return exists(/databases/$(database)/documents/sparkPlayers/$(uid)/missions/$(id)) && get(/databases/$(database)/documents/sparkPlayers/$(uid)/missions/$(id)).data.status == 'verified';}
+  function missionOpen(uid,id){return paid(uid,mission(id).world) && worldOpen(uid,mission(id).world) && (mission(id).previous == '' || verified(uid,mission(id).previous));}
+  function validProfile(p){return p.keys().hasOnly(['name','path','avatar','business']) && text(p.name,1,32) && text(p.business,0,500) && p.path in ['Creator','Affiliate','Service','Digital products','Coach','Local business'] && p.avatar in ['Compass','Feather','Gem','Flame','Shield','Crown'];}
+  function validMission(d){return d.keys().hasOnly(['step','status','draft','proofId','feedback','practiceAnswer','updatedAt']) && d.step is int && d.step >= 1 && d.step <= 6 && d.status in ['active','pending','verified'] && text(d.draft,0,6000) && text(d.proofId,0,128) && text(d.feedback,0,2000) && d.practiceAnswer is int && d.updatedAt == request.time;}
+  function ownStep(uid,id){let n=request.resource.data;let o=resource.data;return self(uid) && missionOpen(uid,id) && o.status == 'active' && n.status == 'active' && n.step == o.step+1 && n.step <= 4 && n.proofId == o.proofId && n.feedback == o.feedback && (o.step == 2 ? text(n.draft,60,6000) : n.draft == o.draft) && (o.step == 1 ? n.practiceAnswer == mission(id).correct : n.practiceAnswer == o.practiceAnswer);}
+  function submitStep(uid,id){let n=request.resource.data;let o=resource.data;let proof=getAfter(/databases/$(database)/documents/sparkProofs/$(n.proofId)).data;return self(uid) && missionOpen(uid,id) && o.status == 'active' && o.step == 4 && n.status == 'pending' && n.step == 5 && n.draft == o.draft && n.feedback == o.feedback && n.practiceAnswer == o.practiceAnswer && proof.uid == uid && proof.missionId == id && proof.status == 'pending';}
+  function reviewStep(uid,id){let n=request.resource.data;let o=resource.data;let proof=getAfter(/databases/$(database)/documents/sparkProofs/$(o.proofId)).data;return owner() && request.auth.uid != uid && o.status == 'pending' && o.step == 5 && n.proofId == o.proofId && n.draft == o.draft && n.practiceAnswer == o.practiceAnswer && proof.uid == uid && proof.missionId == id && proof.feedback == n.feedback && ((n.status == 'verified' && n.step == 6 && proof.status == 'verified') || (n.status == 'active' && n.step == 4 && proof.status == 'rejected'));}
+  match /sparkConfig/owner {allow read: if signed();allow write: if false;}
+  match /sparkConfig/billing {allow read: if signed();allow create,update: if owner() && request.resource.data.keys().hasOnly(['paypalUrl','apiUrl','offerLabel','requireMembership']) && request.resource.data.requireMembership is bool && (!('apiUrl' in request.resource.data) || https(request.resource.data.apiUrl)) && text(request.resource.data.offerLabel,1,100) && (request.resource.data.paypalUrl == '' || request.resource.data.paypalUrl.matches('https://www[.](sandbox[.])?paypal[.]com/.*'));}
+  match /sparkPlayers/{uid} {
+   allow read: if self(uid) || owner();
+   allow create: if self(uid) && request.resource.data.keys().hasOnly(['profile','email','cosmetics','updatedAt']) && validProfile(request.resource.data.profile) && request.resource.data.email == request.auth.token.email && request.resource.data.cosmetics == {} && request.resource.data.updatedAt == request.time;
+   allow update: if self(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['profile','cosmetics','updatedAt']) && validProfile(request.resource.data.profile) && request.resource.data.cosmetics is map && request.resource.data.cosmetics.keys().hasOnly(['title','aura']) && request.resource.data.updatedAt == request.time;
+   match /bank/{id} {
+    function validBank(){let d=request.resource.data;return d.keys().hasOnly(['kind','title','text','image','mime','savedAt']) && text(d.title,1,80) && text(d.text,0,12000) && d.savedAt == request.time && ((id.matches('image-([0-9]|1[01])') && d.kind == 'screenshot' && d.image is bytes && d.image.size() > 0 && d.image.size() <= 180000 && d.mime == 'image/jpeg') || (id.matches('note-([0-9]|1[0-9]|2[0-3])') && d.kind in ['template','conversation','note'] && text(d.text,1,12000) && !('image' in d) && !('mime' in d)));}
+    function capacityChange(operation){let c=getAfter(/databases/$(database)/documents/sparkBankCapacity/global).data;let old=exists(/databases/$(database)/documents/sparkBankCapacity/global)?get(/databases/$(database)/documents/sparkBankCapacity/global).data.used:0;return c.lastSlot == id && c.operation == operation && c.updatedAt == request.time && c.used == old+(operation == 'create'?1:-1) && c.used >= 0 && c.used <= 400;}
+    allow read: if self(uid);
+    allow create: if self(uid) && validBank() && capacityChange('create');
+    allow delete: if self(uid) && capacityChange('delete');
+   }
+   match /missions/{id} {
+    allow read: if self(uid) || owner();
+    allow create: if self(uid) && id in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && missionOpen(uid,id) && validMission(request.resource.data) && request.resource.data.step == 1 && request.resource.data.status == 'active' && request.resource.data.draft == '' && request.resource.data.proofId == '' && request.resource.data.feedback == '' && request.resource.data.practiceAnswer == -1;
+    allow update: if id in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && validMission(request.resource.data) && (ownStep(uid,id) || submitStep(uid,id) || reviewStep(uid,id));
+   }
+   match /bosses/{id} {
+    function ready(){return id in ["foundation", "brand", "offer", "visibility", "conversations", "sales", "experience", "growth", "freedom"] && self(uid) && paid(uid,id) && worldOpen(uid,id) && verified(uid,world(id).first) && verified(uid,world(id).second);}
+    function validBoss(){let n=request.resource.data;return n.keys().hasOnly(['round','attempts','won','history','lastChoice','lastCheck','lastAnswer','updatedAt']) && n.round is int && n.attempts is int && n.won == (n.round == 3) && n.history is list && n.history.size() <= 12 && text(n.lastAnswer,40,3000) && n.lastChoice in ['clarify','rush','evade'] && n.lastCheck in ['observation','assumption','vanity'] && n.updatedAt == request.time;}
+    function pass(){return request.resource.data.lastChoice == 'clarify' && request.resource.data.lastCheck == 'observation';}
+    allow read: if self(uid) || owner();
+    allow create: if ready() && validBoss() && request.resource.data.attempts == 1 && request.resource.data.round == (pass()?1:0);
+    allow update: if ready() && validBoss() && resource.data.won == false && request.resource.data.attempts == resource.data.attempts+1 && request.resource.data.round == resource.data.round+(pass()?1:0) && request.resource.data.round <= 3;
+   }
+   match /guides/{id} {
+    allow read: if self(uid);
+    allow create,update: if self(uid) && id in ['strategist','creator','builder','closer','analyst','spark'] && request.resource.data.keys().hasOnly(['memory','chats','updatedAt']) && request.resource.data.chats is list && request.resource.data.chats.size() <= 12 && request.resource.data.memory is map && request.resource.data.updatedAt == request.time;
+   }
+  }
+  match /sparkProofs/{id} {
+   allow read: if signed() && (resource.data.uid == request.auth.uid || owner());
+   allow create: if signed() && request.resource.data.keys().hasOnly(['uid','missionId','summary','evidence','url','status','feedback','createdAt']) && request.resource.data.uid == request.auth.uid && request.resource.data.missionId in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && missionOpen(request.auth.uid,request.resource.data.missionId) && text(request.resource.data.summary,60,6000) && request.resource.data.evidence is list && request.resource.data.evidence.size() == 3 && text(request.resource.data.evidence[0],20,2000) && text(request.resource.data.evidence[1],20,2000) && text(request.resource.data.evidence[2],20,2000) && https(request.resource.data.url) && request.resource.data.status == 'pending' && request.resource.data.feedback == '' && request.resource.data.createdAt == request.time && getAfter(/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)/missions/$(request.resource.data.missionId)).data.proofId == id && getAfter(/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)/missions/$(request.resource.data.missionId)).data.status == 'pending';
+   allow update: if owner() && resource.data.uid != request.auth.uid && resource.data.status == 'pending' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','feedback','reviewer','reviewedAt']) && request.resource.data.status in ['verified','rejected'] && text(request.resource.data.feedback,10,2000) && request.resource.data.reviewer == request.auth.uid && request.resource.data.reviewedAt == request.time;
+  }
+  match /sparkBankCapacity/global {
+   function validCapacity(){let d=request.resource.data;let p=/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)/bank/$(d.lastSlot);let old=exists(/databases/$(database)/documents/sparkBankCapacity/global)?resource.data.used:0;return d.keys().hasOnly(['used','lastSlot','operation','updatedAt']) && d.used is int && d.used >= 0 && d.used <= 400 && d.updatedAt == request.time && ((d.operation == 'create' && !exists(p) && existsAfter(p) && d.used == old+1) || (d.operation == 'delete' && exists(p) && !existsAfter(p) && d.used == old-1));}
+   allow read: if signed();
+   allow create,update: if signed() && validCapacity();
+  }
+  match /sparkPayPalMemberships/{uid} {allow read: if self(uid) || owner();allow write: if false;}
+  // Billing bindings, events, sales and locks are server-only; the default deny below applies.
+  match /sparkTesters/{uid} {
+   allow read: if self(uid) || owner();
+   allow create,update: if owner() && request.resource.data.keys().hasOnly(['active','expiresAt','note','checkedBy','checkedAt']) && request.resource.data.active is bool && request.resource.data.expiresAt is int && request.resource.data.expiresAt >= 0 && (!request.resource.data.active || request.resource.data.expiresAt == 0 || request.resource.data.expiresAt > request.time.toMillis()) && text(request.resource.data.note,0,500) && request.resource.data.checkedBy == request.auth.uid && request.resource.data.checkedAt == request.time;
+  }
+  match /sparkMemberships/{uid} {
+   allow read: if self(uid) || owner();
+   allow create,update: if owner() && request.resource.data.keys().hasOnly(['active','expiresAt','reference','note','checkedBy','checkedAt']) && request.resource.data.active is bool && request.resource.data.expiresAt is int && request.resource.data.expiresAt >= 0 && (!request.resource.data.active || request.resource.data.expiresAt > request.time.toMillis()) && text(request.resource.data.reference,0,200) && text(request.resource.data.note,0,500) && request.resource.data.checkedBy == request.auth.uid && request.resource.data.checkedAt == request.time;
+  }
+  match /sparkMembershipRequests/{uid} {
+   allow read: if self(uid) || owner();
+   allow create,update: if self(uid) && request.resource.data.keys().hasOnly(['uid','reference','payerEmail','accountEmail','status','updatedAt']) && request.resource.data.uid == uid && request.resource.data.accountEmail == request.auth.token.email && text(request.resource.data.reference,3,200) && text(request.resource.data.payerEmail,3,254) && request.resource.data.status == 'pending' && request.resource.data.updatedAt == request.time;
+   allow update: if owner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status in ['reviewed','revoked'];
+  }
+  match /appConfig/{id} {allow read: if signed() && id in ['resources','announcement'];allow create,update: if owner() && id in ['resources','announcement'];}
+  match /sparkChat/{id} {
+   allow read: if signed();
+   allow create: if signed() && request.resource.data.keys().hasOnly(['uid','playerName','text','createdAt','removed']) && request.resource.data.uid == request.auth.uid && request.resource.data.playerName == get(/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)).data.profile.name && text(request.resource.data.text,1,800) && request.resource.data.removed == false && request.resource.data.createdAt == request.time && getAfter(/databases/$(database)/documents/sparkChatLimits/$(request.auth.uid)).data.messageId == id && getAfter(/databases/$(database)/documents/sparkChatLimits/$(request.auth.uid)).data.sentAt == request.time && (!exists(/databases/$(database)/documents/sparkMutes/$(request.auth.uid)) || get(/databases/$(database)/documents/sparkMutes/$(request.auth.uid)).data.until <= request.time.toMillis());
+   allow update: if owner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','removed']) && request.resource.data.text == 'Message removed by the owner.' && request.resource.data.removed == true;
+  }
+  match /sparkChatLimits/{uid} {
+   allow read: if self(uid);
+   allow create,update: if self(uid) && request.resource.data.keys().hasOnly(['sentAt','messageId']) && request.resource.data.sentAt == request.time && text(request.resource.data.messageId,1,128) && (!exists(/databases/$(database)/documents/sparkChatLimits/$(uid)) || request.time >= resource.data.sentAt + duration.value(6,'s')) && getAfter(/databases/$(database)/documents/sparkChat/$(request.resource.data.messageId)).data.uid == uid;
+  }
+  match /sparkMutes/{uid} {allow read: if self(uid) || owner();allow write: if owner();}
+  match /sparkReports/{id} {
+   allow read: if owner();
+   allow create: if signed() && request.resource.data.keys().hasOnly(['messageId','reportedBy','reason','status','createdAt']) && id == request.resource.data.messageId+'_'+request.auth.uid && request.resource.data.reportedBy == request.auth.uid && text(request.resource.data.reason,3,500) && request.resource.data.status == 'open' && request.resource.data.createdAt == request.time && exists(/databases/$(database)/documents/sparkChat/$(request.resource.data.messageId));
+   allow update: if owner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'resolved';
+  }
+  // Old paid-runtime collections are preserved but not exposed by this edition.
+  match /{document=**} {allow read,write: if false;}
+ }
+}

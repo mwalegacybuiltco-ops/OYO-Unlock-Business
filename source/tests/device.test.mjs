@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {freshGame,applyAction} from '../src/game/engine.js';
+import {missions} from '../src/game/content.js';
+import {action,review,battle,guide,restore} from '../src/device.js';
+test('device actions cannot grant review or boss rewards directly',()=>{assert.throws(()=>action({game:freshGame(),proofs:[]},{type:'review'}));});
+test('device self-review rewards once and records provenance',()=>{let game=freshGame();game.missions.m1={step:5,status:'pending',proofId:'proof1'};const s=review({game,proofs:[{id:'proof1',missionId:'m1'}]},'proof1');assert.equal(s.game.xp,missions[0].xp);assert.equal(s.proofs[0].provenance,'device');assert.match(s.proofs[0].feedback,/not owner-verified/);assert.throws(()=>review(s,'proof1'));});
+test('offline guide labels fixed content and addresses budget',()=>{const r=guide({game:freshGame(),proofs:[]},'closer','How do I address price?');assert.match(r.text,/budget/);assert.match(r.text,/not a live AI analysis/);assert.equal(r.save.game.xp,0);});
+test('offline boss requires missions and correct strategy',()=>{const s={game:freshGame(),proofs:[]};assert.throws(()=>battle(s,'foundation','A sufficiently long thoughtful response to this issue.',1));for(const m of missions.filter(m=>m.world===0))s.game.missions[m.id]={status:'verified',step:6};const failed=battle(s,'foundation','A sufficiently long thoughtful response to this issue.',0);assert.equal(failed.save.game.bosses.foundation.round,0);const passed=battle(s,'foundation','A sufficiently long thoughtful response to this issue.',1);assert.equal(passed.save.game.bosses.foundation.round,1);});
+test('cloud exports cannot restore into device and owner flags never import',()=>{assert.throws(()=>restore({mode:'firebase',game:freshGame(),proofs:[]}));const r=restore({mode:'device',game:freshGame(),proofs:[],isOwner:true,user:{uid:'owner'}});assert.equal(r.isOwner,undefined);assert.equal(r.user,undefined);});

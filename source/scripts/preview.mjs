@@ -1,0 +1,10 @@
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawn} from 'node:child_process';
+const root=fileURLToPath(new URL('../dist/',import.meta.url));
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
+const server=createServer(async(req,res)=>{try{const url=new URL(req.url,'http://localhost');const path=resolve(root,'.'+decodeURIComponent(url.pathname==='/'?'/index.html':url.pathname));if(!path.startsWith(resolve(root)+sep)){res.writeHead(403);res.end();return;}const data=await readFile(path);res.writeHead(200,{'Content-Type':types[extname(path)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(data);}catch{res.writeHead(404);res.end('File not found');}});
+server.on('error',error=>{console.error('Could not start preview:',error.message);process.exit(1);});
+server.listen(4190,'127.0.0.1',()=>{console.log('OYO preview: http://127.0.0.1:4190/\nKeep this window open. Press Ctrl+C to stop.');if(!process.argv.includes('--no-open')){const command=process.platform==='darwin'?'open':process.platform==='win32'?'explorer':'xdg-open';const child=spawn(command,['http://127.0.0.1:4190/'],{stdio:'ignore'});child.on('error',()=>console.log('Open the link above in your browser.'));}});

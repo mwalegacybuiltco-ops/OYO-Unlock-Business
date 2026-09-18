@@ -1,0 +1,15 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "bank",
+      "fieldPath": "image",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "bank",
+      "fieldPath": "text",
+      "indexes": []
+    }
+  ]
+}
