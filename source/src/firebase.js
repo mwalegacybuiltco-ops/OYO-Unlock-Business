@@ -33,7 +33,13 @@ async function gameAction(a){
  if(a.type==='profile'){const next=applyAction(game(),a);await updateDoc(playerRef(),{profile:next.profile,updatedAt:serverTimestamp()});return;}
  if(a.type==='equip'){const next=equipReward(game(),a.rewardId);await updateDoc(playerRef(),{cosmetics:next.cosmetics,updatedAt:serverTimestamp()});return;}
  requireThat(a.type==='step','This action is not available.');const m=missions.find(m=>m.id===a.missionId);requireThat(m,'Unknown mission.');access(m.world);
- await runTransaction(db,async tx=>{const ref=missionRef(m.id),old=await tx.get(ref);const g=structuredClone(game());if(old.exists())g.missions[m.id]=old.data();const next=applyAction(g,a),s=missionState(next,m.id);tx.set(ref,{step:s.step,status:s.status,draft:s.draft||'',proofId:s.proofId||'',feedback:s.feedback||'',practiceAnswer:a.expectedStep===1?a.answer:old.data()?.practiceAnswer??-1,updatedAt:serverTimestamp()});});
+ // A stale Practice screen may have no corresponding cloud record. Create the
+ // rule-required starting stage first; the answer remains a separate checked update.
+ if(a.expectedStep===1){
+  requireThat(a.answer===m.correct,'Not quite. Revisit the lesson and try again.');
+  await runTransaction(db,async tx=>{const ref=missionRef(m.id),old=await tx.get(ref);if(old.exists())return;const g=structuredClone(game());delete g.missions[m.id];applyAction(g,{type:'step',missionId:m.id,expectedStep:0});tx.set(ref,{step:1,status:'active',draft:'',proofId:'',feedback:'',practiceAnswer:-1,updatedAt:serverTimestamp()});});
+ }
+ await runTransaction(db,async tx=>{const ref=missionRef(m.id),old=await tx.get(ref);const g=structuredClone(game());if(old.exists())g.missions[m.id]=old.data();else {delete g.missions[m.id];requireThat(a.expectedStep===0,'This mission has no saved starting stage. Reload your adventure and start from Learn.');}const next=applyAction(g,a),s=missionState(next,m.id);tx.set(ref,{step:s.step,status:s.status,draft:s.draft||'',proofId:s.proofId||'',feedback:s.feedback||'',practiceAnswer:a.expectedStep===1?a.answer:old.data()?.practiceAnswer??-1,updatedAt:serverTimestamp()});});
 }
 async function submitProof({missionId,proofId,proof,attachment}){requireThat(!attachment,'Use written evidence and an HTTPS link. File uploads are not included on Spark.');const m=missions.find(m=>m.id===missionId);requireThat(m,'Unknown mission.');access(m.world);idCheck(proofId);
  await runTransaction(db,async tx=>{const ref=missionRef(m.id),old=await tx.get(ref);const g=structuredClone(game());if(old.exists())g.missions[m.id]=old.data();const next=applyAction(g,{type:'submit',missionId,proofId,proof});tx.set(doc(db,'sparkProofs',proofId),{uid:uid(),missionId,summary:proof.summary.trim(),evidence:proof.evidence.map(x=>x.trim()),url:proof.url||'',status:'pending',feedback:'',createdAt:serverTimestamp()});tx.set(ref,{...old.data(),...next.missions[m.id],updatedAt:serverTimestamp()});});
