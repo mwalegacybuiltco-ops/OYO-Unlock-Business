@@ -15,6 +15,7 @@ async function execute(name,a={}){signed();const result=await fb.call(name,a);aw
 export async function auth(kind,email,password){if(!navigator.onLine)throw Error('Connect to set up or recover your account.');if(!initialized)throw Error('Firebase settings are missing.');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email||''))throw Error('Enter your account email.');return fb.authenticate(kind,email,password);}
 export const signOut=()=>fb.logout();
 export const action=a=>execute('gameAction',a);
+export const restartProgress=options=>execute('restartProgress',options);
 export async function submitProof(missionId,proof,file){signed();if(file)throw Error('Use written evidence and an HTTPS link. This version does not upload files.');checkProof(proof,missions.find(m=>m.id===missionId));return execute('submitProof',{missionId,proofId:crypto.randomUUID(),proof});}
 export const chat=(guideId,message,reset=false)=>execute('askGuide',{guideId,message,reset});
 export const fight=(worldId,answer,choice,check,scenarioId)=>execute('battle',{worldId,answer,choice,check,scenarioId,expectedRound:session.game.bosses[worldId]?.round||0});

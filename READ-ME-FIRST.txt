@@ -1,0 +1,23 @@
+OYO: UNLOCKED — complete game, September 18, 2026
+
+Upload the contents of this folder to your existing GitHub Pages repository. Keep index.html at the publishing root. This includes the full game and source, not just a patch. Firebase public configuration is unchanged.
+
+Included changes:
+- Adventure Pass / Membership navigation and page are shown only to the recognized owner. Visitors, ordinary players and testers cannot view this page through the normal interface or its direct route. Player subscription buttons on that page are hidden, as requested. Existing subscriptions are not cancelled by this UI change. Owner Admin retains payment setup controls.
+- Restart this mission in the mission screen, and Restart my adventure in Character & settings. Both require confirmation. A mission restart also clears downstream progress.
+- Restart keeps the account, character, paid/tester access, Proof Bank, conversations and submitted evidence. Pending evidence becomes withdrawn. Equipped rewards are removed. Publish the updated source/firestore.rules before using restart.
+- Back to Learn expands the full mission lesson above the current task without resetting progress or removing the answer form.
+- Owner Admin is visible to signed-in accounts. Only the registered owner can see or use management forms. Other accounts get setup information.
+- Tester access accepts an existing player's email or Player ID. The tester must create an account and open the game first. If email lookup cannot find them, use their Player ID.
+
+Owner setup in Firebase console:
+Firestore > Data > collection sparkConfig (capital C) > document owner.
+Field uid must be lowercase (not UID), type string, value exactly your game account UID from Authentication > Users.
+Then use Check owner access again in the game's Owner Admin screen.
+
+Permissions troubleshooting is still open:
+The screenshot showed uppercase UID in the owner document. Add lowercase uid to fix owner recognition. Rules now safely deny owner privileges when uid is missing, using Firebase's documented Map.get default behavior (https://firebase.google.com/docs/firestore/security/rules-fields). The packaged correct answers match all 18 mission rules, and local save-payload checks pass. We have not inspected the rules currently published to your Firebase project, so the reported live practice denial is not confirmed fixed. Compare the deployed rules with source/firestore.rules. Publishing rules is a separate Firebase step; uploading files to GitHub does not publish them.
+
+106 local automated tests pass; production build passes. Actual Firebase rule execution, live site behavior and browser interaction have not been verified. Java/Firestore emulator are unavailable here. Prior verification documents describe earlier checkpoints; this note describes this update.
+
+Payment hosting still requires the separate server described in source/billing-server/SETUP.md. No Firebase settings, live website, payments or owner record were changed by preparing this package.

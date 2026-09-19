@@ -3,7 +3,7 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function signed(){return request.auth != null;}
   function self(uid){return signed() && request.auth.uid == uid;}
-  function owner(){return signed() && exists(/databases/$(database)/documents/sparkConfig/owner) && get(/databases/$(database)/documents/sparkConfig/owner).data.uid == request.auth.uid;}
+  function owner(){return signed() && exists(/databases/$(database)/documents/sparkConfig/owner) && get(/databases/$(database)/documents/sparkConfig/owner).data.get('uid','') == request.auth.uid;}
   function text(v,min,max){return v is string && v.size() >= min && v.size() <= max;}
   function https(v){return v == '' || (v is string && v.size() <= 2000 && v.matches('https://[^ ]+'));}
   function world(id){return {"foundation": {"index": 0, "previous": "", "first": "m1", "second": "m2"}, "brand": {"index": 1, "previous": "foundation", "first": "m3", "second": "m4"}, "offer": {"index": 2, "previous": "brand", "first": "m5", "second": "m6"}, "visibility": {"index": 3, "previous": "offer", "first": "m7", "second": "m8"}, "conversations": {"index": 4, "previous": "visibility", "first": "m9", "second": "m10"}, "sales": {"index": 5, "previous": "conversations", "first": "m11", "second": "m12"}, "experience": {"index": 6, "previous": "sales", "first": "m13", "second": "m14"}, "growth": {"index": 7, "previous": "experience", "first": "m15", "second": "m16"}, "freedom": {"index": 8, "previous": "growth", "first": "m17", "second": "m18"}}[id];}
@@ -33,11 +33,13 @@ service cloud.firestore {
     allow delete: if self(uid) && capacityChange('delete');
    }
    match /missions/{id} {
+    allow delete: if self(uid);
     allow read: if self(uid) || owner();
     allow create: if self(uid) && id in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && missionOpen(uid,id) && validMission(request.resource.data) && request.resource.data.step == 1 && request.resource.data.status == 'active' && request.resource.data.draft == '' && request.resource.data.proofId == '' && request.resource.data.feedback == '' && request.resource.data.practiceAnswer == -1;
     allow update: if id in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && validMission(request.resource.data) && (ownStep(uid,id) || submitStep(uid,id) || reviewStep(uid,id));
    }
    match /bosses/{id} {
+    allow delete: if self(uid);
     function ready(){return id in ["foundation", "brand", "offer", "visibility", "conversations", "sales", "experience", "growth", "freedom"] && self(uid) && paid(uid,id) && worldOpen(uid,id) && verified(uid,world(id).first) && verified(uid,world(id).second);}
     function validBoss(){let n=request.resource.data;return n.keys().hasOnly(['round','attempts','won','history','lastChoice','lastCheck','lastAnswer','updatedAt']) && n.round is int && n.attempts is int && n.won == (n.round == 3) && n.history is list && n.history.size() <= 12 && text(n.lastAnswer,40,3000) && n.lastChoice in ['clarify','rush','evade'] && n.lastCheck in ['observation','assumption','vanity'] && n.updatedAt == request.time;}
     function pass(){return request.resource.data.lastChoice == 'clarify' && request.resource.data.lastCheck == 'observation';}
@@ -51,6 +53,8 @@ service cloud.firestore {
    }
   }
   match /sparkProofs/{id} {
+   // Restart preserves submitted evidence but removes withdrawn work from the review queue.
+   allow update: if signed() && resource.data.uid == request.auth.uid && resource.data.status == 'pending' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && request.resource.data.status == 'withdrawn';
    allow read: if signed() && (resource.data.uid == request.auth.uid || owner());
    allow create: if signed() && request.resource.data.keys().hasOnly(['uid','missionId','summary','evidence','url','status','feedback','createdAt']) && request.resource.data.uid == request.auth.uid && request.resource.data.missionId in ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18"] && missionOpen(request.auth.uid,request.resource.data.missionId) && text(request.resource.data.summary,60,6000) && request.resource.data.evidence is list && request.resource.data.evidence.size() == 3 && text(request.resource.data.evidence[0],20,2000) && text(request.resource.data.evidence[1],20,2000) && text(request.resource.data.evidence[2],20,2000) && https(request.resource.data.url) && request.resource.data.status == 'pending' && request.resource.data.feedback == '' && request.resource.data.createdAt == request.time && getAfter(/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)/missions/$(request.resource.data.missionId)).data.proofId == id && getAfter(/databases/$(database)/documents/sparkPlayers/$(request.auth.uid)/missions/$(request.resource.data.missionId)).data.status == 'pending';
    allow update: if owner() && resource.data.uid != request.auth.uid && resource.data.status == 'pending' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','feedback','reviewer','reviewedAt']) && request.resource.data.status in ['verified','rejected'] && text(request.resource.data.feedback,10,2000) && request.resource.data.reviewer == request.auth.uid && request.resource.data.reviewedAt == request.time;
