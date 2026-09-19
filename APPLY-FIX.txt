@@ -1,0 +1,7 @@
+REVIEW FIX ONLY
+
+1. Replace index.html and sw.js in the root of your existing GitHub Pages game repository with the two files included here. Commit the changes.
+2. Open FIREBASE-RULES.txt, copy all its text, and replace the rules in Firebase > Firestore > Rules. Click Publish. Do not paste these rules into the game or GitHub editor.
+3. Once GitHub Pages finishes publishing, close and reopen the game. Open your pending mission and review the built-in Guide notes. You can correct and resubmit, or confirm/override with a reason and finish the mission.
+
+Both the website files and Firebase rules are required. Keep all existing artwork, icons and other game files. The Guide is a built-in text checklist, not a live AI service. This patch contains the latest compiled game page, including earlier fixes; it does not delete existing saved progress.
